@@ -9,22 +9,15 @@ import (
 )
 
 type Selector struct {
-	handlers map[Site]http.Handler
+	handlers map[string]http.Handler
 }
 
 func NewSelector(c Config) Selector {
-	handlers := make(map[Site]http.Handler)
+	handlers := make(map[string]http.Handler)
 
-	for host, config := range c {
-		u, err := url.Parse(host)
-		if err != nil {
-			log.Fatalf("Failed to parse host \"%s\": %s\n", host, err)
-		}
-
-		site := NewSite(u)
-
+	for site, config := range c {
 		if _, ok := handlers[site]; ok {
-			log.Fatalf("There is already a handler registered for %s\n", u)
+			log.Fatalf("There is already a handler registered for %s\n", site)
 		}
 
 		switch config.Action {
@@ -37,12 +30,12 @@ func NewSelector(c Config) Selector {
 			to := config.Data["to"].(string)
 			target, err := url.Parse(to)
 			if err != nil {
-				log.Fatalf("Failed to parse url for reverse proxy (host: \"%s\", to: \"%s\"): %s\n", host, to, err)
+				log.Fatalf("Failed to parse url for reverse proxy (host: \"%s\", to: \"%s\"): %s\n", site, to, err)
 			}
 			proxy := httputil.NewSingleHostReverseProxy(target)
 			handlers[site] = proxy
 		default:
-			log.Fatalf("Unrecognized action (host: %s): %s\n", host, config.Action)
+			log.Fatalf("Unrecognized action (host: %s): %s\n", site, config.Action)
 		}
 	}
 
@@ -51,12 +44,23 @@ func NewSelector(c Config) Selector {
 	}
 }
 
-func (s *Selector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	site := NewSite(r.URL)
-	handler, ok := s.handlers[site]
-	if !ok {
-		w.WriteHeader(http.StatusNotFound)
-		return
+func (s *Selector) ServeString() {
+	for site := range s.handlers {
+		fmt.Println("Serving site", site)
 	}
-	handler.ServeHTTP(w, r)
+	s.Serve()
+}
+
+func (s *Selector) Serve() {
+	for site, handler := range s.handlers {
+		site := site
+		handler := handler
+		server := http.Server{
+			Addr:    site,
+			Handler: handler,
+		}
+		go log.Println(server.ListenAndServe())
+
+	}
+	select {}
 }

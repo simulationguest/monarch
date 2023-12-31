@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/url"
 	"os"
@@ -12,14 +13,16 @@ type Site struct {
 	Port     string
 }
 
+func (s *Site) String() string {
+	return fmt.Sprintf("%s:%s", s.Hostname, s.Port)
+}
+
 func NewSite(u *url.URL) Site {
 	return Site{Hostname: u.Hostname(), Port: u.Port()}
 }
 
 type Config = map[string]Action
 
-// type Path = string
-// type Site = map[Path]Action
 type Action struct {
 	Action string         `json:"action"`
 	Data   map[string]any `json:"data"`
